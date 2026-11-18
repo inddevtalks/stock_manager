@@ -712,6 +712,9 @@ export default function StockIn() {
                         {row.taken_out > 0 && (
                           <span className="cell-sub">{num(row.taken_out)} taken out</span>
                         )}
+                        {row.pending_out > 0 && (
+                          <span className="cell-sub" style={{ color: "var(--warning, #f59e0b)" }}>{num(row.pending_out)} pending</span>
+                        )}
                       </td>
                       <td>
                         <StockBadge status={row.status} />

@@ -10,6 +10,7 @@ import {
   Search,
   Trash2,
   Users,
+  XCircle,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useFetch } from "../lib/useFetch";
@@ -52,6 +53,12 @@ const EMPTY_FORM = {
   taken_at: nowLocal(),
 };
 
+function StatusBadge({ status }) {
+  const s = status || "pending";
+  const cls = s === "approved" ? "badge-brand" : s === "rejected" ? "badge-danger" : "badge-low";
+  return <span className={`badge ${cls} no-dot`}>{s}</span>;
+}
+
 export default function StockOut() {
   const toast = useToast();
   const { user } = useAuth();
@@ -60,6 +67,7 @@ export default function StockOut() {
   const [search, setSearch] = useState("");
   const [memberFilter, setMemberFilter] = useState("all");
   const [itemFilter, setItemFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [sort, setSort] = useState("newest");
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -82,9 +90,10 @@ export default function StockOut() {
     if (search) params.set("search", search);
     if (memberFilter !== "all") params.set("member_id", memberFilter);
     if (itemFilter !== "all") params.set("stationery_id", itemFilter);
+    if (statusFilter !== "all") params.set("status", statusFilter);
     params.set("sort", sort);
     return `?${params.toString()}`;
-  }, [search, memberFilter, itemFilter, sort]);
+  }, [search, memberFilter, itemFilter, statusFilter, sort]);
 
   const { data, loading, error, reload } = useFetch(() => api.stockOut(query), [query]);
   const { data: membersData, reload: reloadMembers } = useFetch(() => api.members(""), []);
@@ -229,6 +238,33 @@ export default function StockOut() {
     }
   }
 
+  async function handleApprove(record) {
+    setBusy(true);
+    try {
+      await api.approveStockOut(record.id);
+      toast.success("Approved", `Stock taken out for ${record.item_name}.`);
+      reload();
+    } catch (err) {
+      toast.error("Could not approve", err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleReject(record) {
+    if (!window.confirm(`Reject this request for ${record.quantity} x ${record.item_name}?`)) return;
+    setBusy(true);
+    try {
+      await api.rejectStockOut(record.id);
+      toast.success("Rejected", "The request was rejected.");
+      reload();
+    } catch (err) {
+      toast.error("Could not reject", err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function exportCsv() {
     if (!records.length) {
       toast.info("Nothing to export", "Record a stock-out first.");
@@ -289,7 +325,7 @@ export default function StockOut() {
         </div>
       </div>
 
-      <div className="mini-stats four">
+      <div className="mini-stats five">
         <div className="mini-stat">
           <span className="stat-icon">
             <PackageMinus size={17} />
@@ -326,6 +362,15 @@ export default function StockOut() {
             <span>Units still in stock</span>
           </div>
         </div>
+        <div className="mini-stat">
+          <span className="stat-icon amber">
+            <AlertTriangle size={17} />
+          </span>
+          <div>
+            <strong>{num(summary.pending_records || 0)}</strong>
+            <span>Pending requests</span>
+          </div>
+        </div>
       </div>
 
       <div className="card">
@@ -354,6 +399,12 @@ export default function StockOut() {
                 {m.name}
               </option>
             ))}
+          </select>
+          <select className="select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="all">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
           </select>
           <select className="select" value={sort} onChange={(event) => setSort(event.target.value)}>
             {SORTS.map((option) => (
@@ -395,6 +446,7 @@ export default function StockOut() {
                   <tr>
                     <th>Item</th>
                     <th>Quantity</th>
+                    <th>Status</th>
                     <th>Taken by</th>
                     <th>Department</th>
                     <th>Purpose</th>
@@ -417,6 +469,9 @@ export default function StockOut() {
                       </td>
                       <td className="num strong">{num(row.quantity)}</td>
                       <td>
+                        <StatusBadge status={row.status} />
+                      </td>
+                      <td>
                         <strong>{row.taken_by}</strong>
                       </td>
                       <td className="muted small">{row.department || "—"}</td>
@@ -424,13 +479,25 @@ export default function StockOut() {
                       <td className="muted small">{formatDate(row.taken_at)}</td>
                       <td className="num">{num(row.remaining)}</td>
                       <td className="actions">
-                        <button
-                          className="btn-icon"
-                          title="Undo (return to Stock In)"
-                          onClick={() => setUndoTarget(row)}
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        {isAdmin && row.status === "pending" && (
+                          <>
+                            <button className="btn-icon" title="Approve" onClick={() => handleApprove(row)} style={{ color: "var(--success)" }}>
+                              <CheckCircle2 size={15} />
+                            </button>
+                            <button className="btn-icon danger" title="Reject" onClick={() => handleReject(row)}>
+                              <XCircle size={15} />
+                            </button>
+                          </>
+                        )}
+                        {(isAdmin || (row.status === "pending")) && (
+                          <button
+                            className="btn-icon"
+                            title="Undo / cancel"
+                            onClick={() => setUndoTarget(row)}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -451,7 +518,9 @@ export default function StockOut() {
                         </span>
                       </div>
                     </div>
-                    <span className="badge badge-neutral no-dot">{num(row.quantity)} taken</span>
+                    <span className={`badge ${row.status === "approved" ? "badge-brand" : row.status === "rejected" ? "badge-danger" : "badge-low"} no-dot`}>
+                      {row.status}
+                    </span>
                   </div>
                   <div className="item-card-stats">
                     <div>

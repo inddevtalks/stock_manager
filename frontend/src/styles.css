@@ -2011,6 +2011,10 @@ button {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.mini-stats.five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .spin {
   animation: spin 0.9s linear infinite;
 }
@@ -2410,6 +2414,10 @@ button {
   }
 
   .mini-stats.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mini-stats.five {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

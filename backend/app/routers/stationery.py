@@ -164,7 +164,7 @@ def build_row(payload: dict, existing: StationeryItem | None = None) -> Statione
     )
 
 
-def row_to_dict(row: StationeryItem, taken_out: float = 0.0) -> dict:
+def row_to_dict(row: StationeryItem, taken_out: float = 0.0, pending_out: float = 0.0) -> dict:
     stock = float(row.total_stock or 0)
     try:
         extra = json.loads(row.extra or "{}")
@@ -177,6 +177,7 @@ def row_to_dict(row: StationeryItem, taken_out: float = 0.0) -> dict:
         "category": row.category or "General",
         "total_stock": stock,
         "taken_out": float(taken_out or 0),
+        "pending_out": float(pending_out or 0),
         "status": "in" if stock > 0 else "out",
         "source_type": row.source_type or "purchased",
         "source_detail": row.source_detail,
@@ -198,6 +199,9 @@ def out_to_dict(
         "stationery_id": record.stationery_id,
         "member_id": record.member_id,
         "member_name": member.name if member else None,
+        "status": record.status or "pending",
+        "approved_at": iso(record.approved_at) if record.approved_at else None,
+        "approved_by": record.approved_by,
         "item_name": item.name if item else "Deleted item",
         "item_category": (item.category or "General") if item else "General",
         "quantity": float(record.quantity or 0),
@@ -254,9 +258,14 @@ def _summary(rows: list[StationeryItem]) -> dict:
 
 
 def _out_summary(records: list[StationeryOut], items: list[StationeryItem]) -> dict:
+    approved = [r for r in records if (r.status or "pending") == "approved"]
+    pending = [r for r in records if (r.status or "pending") == "pending"]
     return {
         "records": len(records),
-        "units_out": sum(float(record.quantity or 0) for record in records),
+        "approved_records": len(approved),
+        "pending_records": len(pending),
+        "units_out": sum(float(record.quantity or 0) for record in approved),
+        "pending_units": sum(float(record.quantity or 0) for record in pending),
         "people": len({record.taken_by for record in records if record.taken_by}),
         "items": len({record.stationery_id for record in records}),
         "remaining_units": sum(float(item.total_stock or 0) for item in items),
@@ -411,16 +420,23 @@ def list_stationery(
     rows = db.scalars(stmt).all()
     all_rows = db.scalars(select(StationeryItem)).all()
     fields = db.scalars(select(StationeryField).order_by(StationeryField.position, StationeryField.id)).all()
-    out_totals = dict(
+    approved_totals = dict(
         db.execute(
-            select(StationeryOut.stationery_id, func.sum(StationeryOut.quantity)).group_by(
-                StationeryOut.stationery_id
-            )
+            select(StationeryOut.stationery_id, func.sum(StationeryOut.quantity)).where(
+                StationeryOut.status == "approved"
+            ).group_by(StationeryOut.stationery_id)
+        ).all()
+    )
+    pending_totals = dict(
+        db.execute(
+            select(StationeryOut.stationery_id, func.sum(StationeryOut.quantity)).where(
+                StationeryOut.status == "pending"
+            ).group_by(StationeryOut.stationery_id)
         ).all()
     )
 
     return {
-        "items": [row_to_dict(row, float(out_totals.get(row.id, 0) or 0)) for row in rows],
+        "items": [row_to_dict(row, float(approved_totals.get(row.id, 0) or 0), float(pending_totals.get(row.id, 0) or 0)) for row in rows],
         "columns": [field_to_dict(field) for field in fields],
         "summary": _summary(list(all_rows)),
     }
@@ -520,6 +536,7 @@ def list_stock_out(
     search: str | None = None,
     member_id: int | None = None,
     stationery_id: int | None = None,
+    status: str | None = None,
     sort: str = "newest",
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -543,6 +560,8 @@ def list_stock_out(
         stmt = stmt.where(StationeryOut.member_id == member_id)
     if stationery_id is not None:
         stmt = stmt.where(StationeryOut.stationery_id == stationery_id)
+    if status and status != "all":
+        stmt = stmt.where(StationeryOut.status == status)
     if getattr(user, "role", "admin") == "staff":
         stmt = stmt.where(StationeryOut.created_by == user.name)
     if sort == "item":
@@ -607,18 +626,38 @@ def create_stock_out(
             detail=f"Only {available:g} available in Stock In for {item.name}.",
         )
 
-    record = StationeryOut(
-        stationery_id=item.id,
-        member_id=member.id if member else None,
-        quantity=quantity,
-        taken_by=taken_by[:160],
-        department=department[:120] if department else None,
-        purpose=(payload.purpose or "").strip()[:200] or None,
-        note=(payload.note or "").strip() or None,
-        taken_at=parse_datetime(payload.taken_at) or utcnow(),
-        created_by=user.name,
-    )
-    item.total_stock = available - quantity
+    is_admin = getattr(user, "role", "staff") == "admin"
+    if is_admin:
+        # admins take stock out immediately
+        item.total_stock = available - quantity
+        record = StationeryOut(
+            stationery_id=item.id,
+            member_id=member.id if member else None,
+            quantity=quantity,
+            status="approved",
+            taken_by=taken_by[:160],
+            department=department[:120] if department else None,
+            purpose=(payload.purpose or "").strip()[:200] or None,
+            note=(payload.note or "").strip() or None,
+            taken_at=parse_datetime(payload.taken_at) or utcnow(),
+            approved_at=utcnow(),
+            approved_by=user.name,
+            created_by=user.name,
+        )
+    else:
+        # staff submit a request; stock is not deducted yet
+        record = StationeryOut(
+            stationery_id=item.id,
+            member_id=member.id if member else None,
+            quantity=quantity,
+            status="pending",
+            taken_by=taken_by[:160],
+            department=department[:120] if department else None,
+            purpose=(payload.purpose or "").strip()[:200] or None,
+            note=(payload.note or "").strip() or None,
+            taken_at=parse_datetime(payload.taken_at) or utcnow(),
+            created_by=user.name,
+        )
     db.add(record)
     db.commit()
     db.refresh(record)
@@ -635,13 +674,72 @@ def delete_stock_out(
     record = db.get(StationeryOut, record_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Stock-out record not found.")
+    is_admin = getattr(user, "role", "admin") == "admin"
+    if not is_admin:
+        if record.created_by != user.name or (record.status or "pending") != "pending":
+            raise HTTPException(status_code=403, detail="You can only cancel your own pending requests.")
     item = db.get(StationeryItem, record.stationery_id)
     restored = float(record.quantity or 0)
-    if item is not None:
+    if (record.status or "pending") == "approved" and item is not None:
         item.total_stock = float(item.total_stock or 0) + restored
     db.delete(record)
     db.commit()
     return {"ok": True, "restored": restored}
+
+
+@router.post("/out/{record_id}/approve")
+def approve_stock_out(
+    record_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if getattr(user, "role", "admin") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can approve stock-out requests.")
+    record = db.get(StationeryOut, record_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Stock-out record not found.")
+    if (record.status or "pending") != "pending":
+        raise HTTPException(status_code=400, detail="This request is not pending.")
+    item = db.get(StationeryItem, record.stationery_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Stationery item not found.")
+    quantity = float(record.quantity or 0)
+    available = float(item.total_stock or 0)
+    if quantity > available:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only {available:g} available in Stock In for {item.name}.",
+        )
+    item.total_stock = available - quantity
+    record.status = "approved"
+    record.approved_at = utcnow()
+    record.approved_by = user.name
+    db.commit()
+    db.refresh(record)
+    db.refresh(item)
+    member = db.get(User, record.member_id) if record.member_id else None
+    return out_to_dict(record, item, member)
+
+
+@router.post("/out/{record_id}/reject")
+def reject_stock_out(
+    record_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if getattr(user, "role", "admin") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can reject stock-out requests.")
+    record = db.get(StationeryOut, record_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Stock-out record not found.")
+    if (record.status or "pending") != "pending":
+        raise HTTPException(status_code=400, detail="This request is not pending.")
+    record.status = "rejected"
+    db.commit()
+    db.refresh(record)
+    item = db.get(StationeryItem, record.stationery_id)
+    member = db.get(User, record.member_id) if record.member_id else None
+    return out_to_dict(record, item, member)
 
 
 @router.post("/bulk")

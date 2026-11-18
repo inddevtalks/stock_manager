@@ -108,6 +108,8 @@ export const api = {
   stationeryOverview: () => request("/api/stationery/overview"),
   stockOut: (query = "") => request(`/api/stationery/out${query}`),
   createStockOut: (payload) => request("/api/stationery/out", { method: "POST", body: payload }),
+  approveStockOut: (id) => request(`/api/stationery/out/${id}/approve`, { method: "POST" }),
+  rejectStockOut: (id) => request(`/api/stationery/out/${id}/reject`, { method: "POST" }),
   deleteStockOut: (id) => request(`/api/stationery/out/${id}`, { method: "DELETE" }),
   previewStationeryImport: (file) => {
     const form = new FormData();

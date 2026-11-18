@@ -259,10 +259,13 @@ def _seed_stationery_out(db: Session) -> None:
             StationeryOut(
                 stationery_id=item.id,
                 quantity=quantity,
+                status="approved",
                 taken_by=person,
                 department=department,
                 purpose=purpose,
                 taken_at=now - timedelta(days=days_ago),
+                approved_at=now - timedelta(days=days_ago),
+                approved_by="Admin User",
                 created_by="Admin User",
             )
         )

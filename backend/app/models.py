@@ -137,7 +137,10 @@ class StationeryOut(Base):
         ForeignKey("members.id"), nullable=True, index=True, default=None
     )
     quantity: Mapped[float] = mapped_column(Float, default=0.0)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
     taken_by: Mapped[str] = mapped_column(String(160), index=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    approved_by: Mapped[str | None] = mapped_column(String(160), default=None)
     department: Mapped[str | None] = mapped_column(String(120), default=None)
     purpose: Mapped[str | None] = mapped_column(String(200), default=None)
     note: Mapped[str | None] = mapped_column(Text, default=None)
