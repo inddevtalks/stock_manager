@@ -21,10 +21,28 @@ def _database_url() -> str:
     return f"sqlite:///{DATA_DIR / 'stockmanager.db'}"
 
 
+def _connect_args(url: str) -> dict:
+    if url.startswith("sqlite"):
+        return {"check_same_thread": False}
+    args = {}
+    # Optional SSL CA cert (paste the PEM content into DATABASE_SSL_CA env var).
+    ssl_ca = os.getenv("DATABASE_SSL_CA")
+    if ssl_ca:
+        ca_path = "/tmp/db_ca.pem" if os.getenv("VERCEL") else str(DATA_DIR / "db_ca.pem")
+        try:
+            with open(ca_path, "w", encoding="utf-8") as f:
+                f.write(ssl_ca)
+            args["ssl"] = {"ca": ca_path}
+        except OSError:
+            pass
+    return args
+
+
 DB_PATH = None
+_DATABASE_URL = _database_url()
 engine = create_engine(
-    _database_url(),
-    connect_args={"check_same_thread": False} if _database_url().startswith("sqlite") else {},
+    _DATABASE_URL,
+    connect_args=_connect_args(_DATABASE_URL),
     future=True,
 )
 
