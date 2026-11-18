@@ -149,6 +149,30 @@ A CSV template with your current columns can be downloaded from the import dialo
 
 ---
 
+## Database
+
+By default the app uses **SQLite** (a local file: `backend/data/stockmanager.db`, or `/tmp/stockmanager.db` on Vercel).
+No setup is required for local development.
+
+To use **MySQL** (or any other SQLAlchemy-supported database), set the `DATABASE_URL` environment
+variable before starting the server:
+
+```
+# MySQL (install pymysql: pip install pymysql)
+DATABASE_URL=mysql+pymysql://USER:PASSWORD@HOST:3306/DBNAME
+
+# PostgreSQL
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME
+```
+
+Tables are created automatically on startup (`Base.metadata.create_all`), so just point the URL at an
+empty database and restart. On Vercel, set `DATABASE_URL` in Project Settings -> Environment Variables,
+then redeploy.
+
+The database must already exist (the app does not create the database itself, only the tables).
+
+---
+
 ## Using it from your phone
 
 1. Start the server (or Vite dev server) — both bind to `0.0.0.0`.
