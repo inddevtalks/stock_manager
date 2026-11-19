@@ -134,7 +134,7 @@ class StationeryOut(Base):
         ForeignKey("stationery_items.id"), index=True
     )
     member_id: Mapped[int | None] = mapped_column(
-        ForeignKey("members.id"), nullable=True, index=True, default=None
+        ForeignKey("users.id"), nullable=True, index=True, default=None
     )
     quantity: Mapped[float] = mapped_column(Float, default=0.0)
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)

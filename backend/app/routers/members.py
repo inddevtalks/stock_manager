@@ -87,6 +87,10 @@ def delete_member(
     member = db.get(User, member_id)
     if member is None:
         raise HTTPException(status_code=404, detail="Member not found.")
+    from ..models import StationeryOut
+    db.query(StationeryOut).filter(StationeryOut.member_id == member_id).update(
+        {StationeryOut.member_id: None}, synchronize_session=False
+    )
     db.delete(member)
     db.commit()
     return {"ok": True}

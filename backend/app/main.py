@@ -14,16 +14,37 @@ from .seed import seed
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # One-time migration: members are now user accounts; drop obsolete tables.
+    try:
+        from sqlalchemy import text, inspect
+        _insp = inspect(engine)
+        if "members" in _insp.get_table_names():
+            with engine.connect() as _conn:
+                _conn.execute(text("DROP TABLE IF EXISTS stationery_out"))
+                _conn.execute(text("DROP TABLE IF EXISTS members"))
+                _conn.commit()
+    except Exception:
+        pass
     Base.metadata.create_all(bind=engine)
     seed()
     yield
 
 
-# Ensure tables exist even in serverless environments where lifespan events may not fire.
+# One-time migration + ensure tables exist (serverless-safe).
 try:
+    from sqlalchemy import text, inspect
+    _insp = inspect(engine)
+    if "members" in _insp.get_table_names():
+        with engine.connect() as _conn:
+            _conn.execute(text("DROP TABLE IF EXISTS stationery_out"))
+            _conn.execute(text("DROP TABLE IF EXISTS members"))
+            _conn.commit()
     Base.metadata.create_all(bind=engine)
 except Exception:
-    pass
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception:
+        pass
 
 
 app = FastAPI(
