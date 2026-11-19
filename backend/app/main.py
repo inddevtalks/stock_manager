@@ -6,45 +6,55 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text, inspect
 
 from .db import Base, engine
 from .routers import auth, dashboard, issues, items, members, settings, stationery
 from .seed import seed
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # One-time migration: members are now user accounts; drop obsolete tables.
+def _migrate_schema():
+    """One-time migration: drop obsolete/wrong-schema tables so create_all recreates them."""
     try:
-        from sqlalchemy import text, inspect
         _insp = inspect(engine)
-        if "members" in _insp.get_table_names():
-            with engine.connect() as _conn:
-                _conn.execute(text("DROP TABLE IF EXISTS stationery_out"))
-                _conn.execute(text("DROP TABLE IF EXISTS members"))
-                _conn.commit()
+        _tables = _insp.get_table_names()
+        # Drop stationery_out if it lacks the approval columns.
+        if "stationery_out" in _tables:
+            try:
+                _cols = {c["name"] for c in _insp.get_columns("stationery_out")}
+                if "status" not in _cols or "approved_at" not in _cols:
+                    with engine.connect() as _conn:
+                        _conn.execute(text("DROP TABLE IF EXISTS stationery_out"))
+                        _conn.commit()
+            except Exception:
+                pass
+        # Drop obsolete members table (members are now users).
+        if "members" in _tables:
+            try:
+                with engine.connect() as _conn:
+                    _conn.execute(text("DROP TABLE IF EXISTS stationery_out"))
+                    _conn.execute(text("DROP TABLE IF EXISTS members"))
+                    _conn.commit()
+            except Exception:
+                pass
     except Exception:
         pass
-    Base.metadata.create_all(bind=engine)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _migrate_schema()
+    Base.metadata.create_all(bind=engine, checkfirst=True)
     seed()
     yield
 
 
-# One-time migration + ensure tables exist (serverless-safe).
+# Serverless-safe: run migration + create_all at import time.
+_migrate_schema()
 try:
-    from sqlalchemy import text, inspect
-    _insp = inspect(engine)
-    if "members" in _insp.get_table_names():
-        with engine.connect() as _conn:
-            _conn.execute(text("DROP TABLE IF EXISTS stationery_out"))
-            _conn.execute(text("DROP TABLE IF EXISTS members"))
-            _conn.commit()
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine, checkfirst=True)
 except Exception:
-    try:
-        Base.metadata.create_all(bind=engine)
-    except Exception:
-        pass
+    pass
 
 
 app = FastAPI(
