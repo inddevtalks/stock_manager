@@ -19,6 +19,13 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# Ensure tables exist even in serverless environments where lifespan events may not fire.
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception:
+    pass
+
+
 app = FastAPI(
     title="Stock Manager API",
     description="Stock and inventory management backend for the Stock Manager SaaS app.",
