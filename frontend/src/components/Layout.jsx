@@ -55,6 +55,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [stockOutPending, setStockOutPending] = useState(0);
 
   useEffect(() => {
     setDrawerOpen(false);
@@ -68,6 +69,12 @@ export default function Layout() {
       .issues("?status=pending")
       .then((rows) => {
         if (active) setPendingCount(rows.length);
+      })
+      .catch(() => {});
+    api
+      .stockOut("?status=pending")
+      .then((data) => {
+        if (active) setStockOutPending(data?.summary?.pending_records || 0);
       })
       .catch(() => {});
     return () => {
@@ -131,6 +138,11 @@ export default function Layout() {
                     >
                       <span className="sub-dot" />
                       <span>{child.label}</span>
+                      {child.to === "/stock-out" && stockOutPending > 0 && user?.role !== "staff" && (
+                        <span className="side-count" style={{ marginLeft: "auto", background: "var(--danger)" }}>
+                          {stockOutPending}
+                        </span>
+                      )}
                     </NavLink>
                   ))}
                 </div>

@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowDownToLine,
   CheckCircle2,
+  Clock,
   Download,
   PackageMinus,
   Plus,
@@ -30,6 +31,12 @@ const SORTS = [
   { value: "item", label: "Item (A–Z)" },
   { value: "quantity", label: "Highest quantity" },
 ];
+
+function todayISO() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
+}
 
 function nowLocal() {
   const now = new Date();
@@ -320,7 +327,7 @@ export default function StockOut() {
             </Link>
           )}
           <button className="btn btn-primary" onClick={openCreate}>
-            <Plus size={16} /> Take out
+            <Plus size={16} /> {isAdmin ? "Take out" : "Request stock"}
           </button>
         </div>
       </div>
@@ -373,6 +380,26 @@ export default function StockOut() {
         </div>
       </div>
 
+      <div className="tabs" role="tablist" style={{ marginBottom: 14 }}>
+        {[
+          { value: "all", label: "All records" },
+          { value: "pending", label: "Pending requests" },
+          { value: "approved", label: "Approved" },
+          { value: "rejected", label: "Rejected" },
+        ].map((tab) => (
+          <button
+            key={tab.value}
+            className={`tab${statusFilter === tab.value ? " active" : ""}`}
+            onClick={() => setStatusFilter(tab.value)}
+          >
+            {tab.label}
+            {tab.value === "pending" && (summary.pending_records || 0) > 0 && (
+              <span className="tab-count">{summary.pending_records}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
       <div className="card">
         <div className="toolbar">
           <div className="search-box">
@@ -400,12 +427,6 @@ export default function StockOut() {
               </option>
             ))}
           </select>
-          <select className="select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-            <option value="all">All statuses</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
           <select className="select" value={sort} onChange={(event) => setSort(event.target.value)}>
             {SORTS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -430,11 +451,13 @@ export default function StockOut() {
             message={
               search
                 ? "Try a different search."
-                : "Take stationery out of the cupboard and it will be recorded here. Stock In balances update automatically."
+                : isAdmin
+                ? "Take stationery out of the cupboard and it will be recorded here. Stock In balances update automatically."
+                : "Submit a request to take stock out. It will be sent to the admin for approval."
             }
             action={
               <button className="btn btn-primary btn-sm" onClick={openCreate}>
-                <Plus size={14} /> Take out
+                <Plus size={14} /> {isAdmin ? "Take out" : "Request stock"}
               </button>
             }
           />
@@ -560,7 +583,7 @@ export default function StockOut() {
       <Modal
         open={modal?.type === "create"}
         onClose={() => setModal(null)}
-        title="Take stock out"
+        title={isAdmin ? "Take stock out" : "Request stock"}
         subtitle="Record stationery leaving the cupboard. Stock In balances update automatically."
         wide
         footer={
@@ -695,14 +718,39 @@ export default function StockOut() {
             />
           </div>
           <div className="field">
-            <label htmlFor="so-date">Date & time</label>
+            <label htmlFor="so-date">Date</label>
             <input
               id="so-date"
               className="input"
-              type="datetime-local"
-              value={form.taken_at}
-              onChange={(event) => updateField("taken_at", event.target.value)}
+              type="date"
+              value={form.taken_at ? form.taken_at.slice(0, 10) : ""}
+              onChange={(event) => {
+                const date = event.target.value;
+                const time = form.taken_at && form.taken_at.includes("T") ? form.taken_at.slice(11, 16) : "09:00";
+                updateField("taken_at", date ? `${date}T${time}` : "");
+              }}
             />
+          </div>
+          <div className="field">
+            <label htmlFor="so-time">Time</label>
+            <div style={{ position: "relative" }}>
+              <Clock
+                size={15}
+                style={{ position: "absolute", left: 12, top: 12, color: "var(--muted)" }}
+              />
+              <input
+                id="so-time"
+                className="input"
+                type="time"
+                style={{ paddingLeft: 34 }}
+                value={form.taken_at && form.taken_at.includes("T") ? form.taken_at.slice(11, 16) : ""}
+                onChange={(event) => {
+                  const time = event.target.value;
+                  const date = form.taken_at ? form.taken_at.slice(0, 10) : todayISO();
+                  updateField("taken_at", time ? `${date}T${time}` : date);
+                }}
+              />
+            </div>
           </div>
           <div className="field span-2">
             <label htmlFor="so-note">Note</label>
