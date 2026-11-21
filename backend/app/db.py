@@ -24,18 +24,16 @@ def _database_url() -> str:
 def _connect_args(url: str) -> dict:
     if url.startswith("sqlite"):
         return {"check_same_thread": False}
-    args = {}
-    # Optional SSL CA cert (paste the PEM content into DATABASE_SSL_CA env var).
-    ssl_ca = os.getenv("DATABASE_SSL_CA")
-    if ssl_ca:
-        ca_path = "/tmp/db_ca.pem" if os.getenv("VERCEL") else str(DATA_DIR / "db_ca.pem")
-        try:
-            with open(ca_path, "w", encoding="utf-8") as f:
-                f.write(ssl_ca)
-            args["ssl"] = {"ca": ca_path}
-        except OSError:
-            pass
-    return args
+    # Managed providers (TiDB/Aiven) require TLS. Use an unverified context so the
+    # connection works regardless of the CA bundle shipped in the runtime.
+    try:
+        import ssl as _ssl
+        _ctx = _ssl.create_default_context()
+        _ctx.check_hostname = False
+        _ctx.verify_mode = _ssl.CERT_NONE
+        return {"ssl": _ctx}
+    except Exception:
+        return {}
 
 
 DB_PATH = None
