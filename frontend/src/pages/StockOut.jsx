@@ -75,6 +75,7 @@ export default function StockOut() {
   const [memberFilter, setMemberFilter] = useState("all");
   const [itemFilter, setItemFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [defaulted, setDefaulted] = useState(false);
   const [sort, setSort] = useState("newest");
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -103,6 +104,12 @@ export default function StockOut() {
   }, [search, memberFilter, itemFilter, statusFilter, sort]);
 
   const { data, loading, error, reload } = useFetch(() => api.stockOut(query), [query]);
+  useEffect(() => {
+    if (!defaulted && isAdmin && (summary.pending_records || 0) > 0) {
+      setStatusFilter("pending");
+      setDefaulted(true);
+    }
+  }, [summary.pending_records, isAdmin, defaulted]);
   const { data: membersData, reload: reloadMembers } = useFetch(() => api.members(""), []);
   const members = membersData || [];
 
@@ -331,6 +338,34 @@ export default function StockOut() {
           </button>
         </div>
       </div>
+
+      {isAdmin && (summary.pending_records || 0) > 0 && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 16,
+            background: "linear-gradient(135deg, rgba(245,158,11,0.12), rgba(239,68,68,0.08))",
+            border: "1px solid rgba(245,158,11,0.4)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span className="stat-icon amber">
+              <AlertTriangle size={18} />
+            </span>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <strong style={{ display: "block", fontSize: 14 }}>
+                {summary.pending_records} pending stock-out request{summary.pending_records === 1 ? "" : "s"} awaiting approval
+              </strong>
+              <span className="muted small">
+                Review and approve or reject them below.
+              </span>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={() => setStatusFilter("pending")}>
+              View requests
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="mini-stats five">
         <div className="mini-stat">
