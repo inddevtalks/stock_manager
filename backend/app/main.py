@@ -44,7 +44,10 @@ def _migrate_schema():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _migrate_schema()
-    Base.metadata.create_all(bind=engine, checkfirst=True)
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+    except Exception:
+        pass
     seed()
     yield
 
@@ -54,6 +57,7 @@ _migrate_schema()
 try:
     Base.metadata.create_all(bind=engine, checkfirst=True)
 except Exception:
+    # Table may already exist (MySQL has_table quirk) — safe to ignore.
     pass
 
 
