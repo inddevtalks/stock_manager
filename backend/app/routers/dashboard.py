@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Issue, Item, Movement, Setting, User
+from ..models import Issue, Item, Movement, Setting, StationeryItem, StationeryOut, User
 from ..security import get_current_user
 from ..serializers import iso, item_to_dict, issue_to_dict, movement_to_dict
 
@@ -25,6 +25,13 @@ def dashboard(db: Session = Depends(get_db), _: User = Depends(get_current_user)
     low_items = [i for i in items if float(i.quantity or 0) > 0 and i.min_level and float(i.quantity) <= float(i.min_level)]
     out_items = [i for i in items if float(i.quantity or 0) <= 0]
     pending_units = sum(float(i.quantity) - float(i.returned_quantity or 0) for i in pending_issues)
+
+    stationery_items = list(db.scalars(select(StationeryItem)))
+    stationery_out_records = list(db.scalars(select(StationeryOut).where(StationeryOut.status == "approved")))
+    stationery_pending = list(db.scalars(select(StationeryOut).where(StationeryOut.status == "pending")))
+    stationery_units = sum(float(i.total_stock or 0) for i in stationery_items)
+    stationery_taken = sum(float(r.quantity or 0) for r in stationery_out_records)
+    stationery_pending_units = sum(float(r.quantity or 0) for r in stationery_pending)
 
     issued_today = db.scalar(
         select(func.coalesce(func.sum(Issue.quantity), 0)).where(Issue.issued_at >= today_start)
@@ -120,6 +127,14 @@ def dashboard(db: Session = Depends(get_db), _: User = Depends(get_current_user)
             "issued_today": float(issued_today),
             "returned_today": float(returned_today),
             "categories": len(category_rows),
+        },
+        "stationery": {
+            "items": len(stationery_items),
+            "units": stationery_units,
+            "taken_out": stationery_taken,
+            "pending_requests": len(stationery_pending),
+            "pending_units": stationery_pending_units,
+            "out_of_stock": sum(1 for i in stationery_items if float(i.total_stock or 0) <= 0),
         },
         "categories": categories,
         "low_stock": low_stock,

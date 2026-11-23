@@ -56,8 +56,12 @@ export default function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [stockOutPending, setStockOutPending] = useState(0);
+  const [invOpen, setInvOpen] = useState(true);
 
   useEffect(() => {
+    if (location.pathname.startsWith("/stock-in") || location.pathname.startsWith("/stock-out")) {
+      setInvOpen(true);
+    }
     setDrawerOpen(false);
     window.scrollTo({ top: 0 });
   }, [location.pathname]);
@@ -115,20 +119,51 @@ export default function Layout() {
             (child) =>
               location.pathname === child.to || location.pathname.startsWith(`${child.to}/`)
           );
+          const isInv = item.to === "/inventory";
+          const open = isInv ? invOpen : true;
           return (
             <div className="side-group" key={item.to}>
-              <NavLink
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  `side-link${isActive ? " active" : ""}${!isActive && childActive ? " trail" : ""}`
-                }
-              >
-                <item.icon size={18} strokeWidth={2} />
-                <span>{item.label}</span>
-                {item.badge && pendingCount > 0 && <span className="side-count">{pendingCount}</span>}
-              </NavLink>
-              {item.children?.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <NavLink
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    `side-link${isActive ? " active" : ""}${!isActive && childActive ? " trail" : ""}`
+                  }
+                  style={{ flex: 1 }}
+                >
+                  <item.icon size={18} strokeWidth={2} />
+                  <span>{item.label}</span>
+                  {item.badge && pendingCount > 0 && <span className="side-count">{pendingCount}</span>}
+                </NavLink>
+                {item.children?.length > 0 && (
+                  <button
+                    type="button"
+                    className="side-caret-btn"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setInvOpen((v) => !v);
+                    }}
+                    aria-label={open ? "Collapse" : "Expand"}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#94a3b8",
+                      padding: "6px",
+                      cursor: "pointer",
+                      display: "grid",
+                      placeItems: "center",
+                    }}
+                  >
+                    <ChevronDown
+                      size={14}
+                      style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.16s" }}
+                    />
+                  </button>
+                )}
+              </div>
+              {item.children?.length > 0 && open && (
                 <div className="side-sub">
                   {item.children.map((child) => (
                     <NavLink

@@ -85,6 +85,7 @@ export default function Dashboard() {
   }
 
   const stats = data?.stats || {};
+  const stationery = data?.stationery || {};
   const categories = data?.categories || [];
   const trend = data?.trend || [];
   const pending = data?.pending || [];
@@ -108,7 +109,7 @@ export default function Dashboard() {
           <p className="page-sub">Here is the latest snapshot of your stock and pending items.</p>
         </div>
         <div className="head-actions">
-          <button className="btn btn-outline" onClick={() => navigate("/stock?new=1")}>
+          <button className="btn btn-outline" onClick={() => navigate("/stock-in")}>
             <PackagePlus size={16} /> Add stock
           </button>
           <button className="btn btn-primary" onClick={() => navigate("/inventory?issue=1")}>
@@ -169,6 +170,33 @@ export default function Dashboard() {
             {num(stats.low_stock)} low · {num(stats.out_of_stock)} out of stock
           </div>
         </div>
+      </div>
+
+      <div className="stationery-hub" style={{ marginBottom: 20 }}>
+        <Link to="/stock-in" className="hub-card">
+          <span className="stat-icon blue">
+            <ClipboardList size={18} />
+          </span>
+          <div className="hub-card-copy">
+            <strong>Stock In</strong>
+            <span>
+              {num(stationery.items || 0)} items · {num(stationery.units || 0)} units available
+            </span>
+          </div>
+          <ChevronRight size={16} className="hub-arrow" />
+        </Link>
+        <Link to="/stock-out" className="hub-card">
+          <span className="stat-icon amber">
+            <ArrowUpFromLine size={18} />
+          </span>
+          <div className="hub-card-copy">
+            <strong>Stock Out</strong>
+            <span>
+              {num(stationery.pending_requests || 0)} pending · {num(stationery.taken_out || 0)} units taken
+            </span>
+          </div>
+          <ChevronRight size={16} className="hub-arrow" />
+        </Link>
       </div>
 
       {lowStock.length > 0 && (
