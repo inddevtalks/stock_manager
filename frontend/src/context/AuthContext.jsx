@@ -18,6 +18,12 @@ export function AuthProvider({ children }) {
       return;
     }
     let active = true;
+    const timer = setTimeout(() => {
+      if (active) {
+        logout();
+        setBooting(false);
+      }
+    }, 8000);
     api
       .me()
       .then((profile) => {
@@ -28,9 +34,11 @@ export function AuthProvider({ children }) {
       })
       .finally(() => {
         if (active) setBooting(false);
+        clearTimeout(timer);
       });
     return () => {
       active = false;
+      clearTimeout(timer);
     };
   }, [logout]);
 
