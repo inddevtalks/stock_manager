@@ -21,12 +21,18 @@ def _load_secret() -> str:
     env_secret = os.getenv("SECRET_KEY")
     if env_secret:
         return env_secret
-    secret_file = Path(DATA_DIR) / ".secret"
-    if secret_file.exists():
-        return secret_file.read_text().strip()
-    secret = secrets.token_hex(32)
-    secret_file.write_text(secret)
-    return secret
+    try:
+        secret_file = Path(DATA_DIR) / ".secret"
+        if secret_file.exists():
+            return secret_file.read_text().strip()
+        secret = secrets.token_hex(32)
+        try:
+            secret_file.write_text(secret)
+        except OSError:
+            pass
+        return secret
+    except Exception:
+        return "stockmanager-secret-fallback-token-key-2026"
 
 
 SECRET_KEY = _load_secret()
@@ -80,14 +86,6 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     db: Session = Depends(get_db),
 ) -> User:
-    """
-    Validate the JWT and return the User ORM object (fetched from DB).
-
-    The DB lookup is kept here for correctness -- routes that mutate the user
-    (update_me, change_password) need a session-managed object.  Read-only
-    routes that only need user.id / user.name / user.role benefit from the
-    indexed PK lookup which is essentially free on any DB.
-    """
     unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Not authenticated",
