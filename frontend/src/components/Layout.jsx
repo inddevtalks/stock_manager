@@ -4,6 +4,7 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Boxes,
+  ChevronDown,
   ClipboardList,
   LayoutDashboard,
   LogOut,
