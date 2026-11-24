@@ -7,7 +7,7 @@ const SESSION_USER_KEY = "sm_user_cache";
 
 function getCachedUser() {
   try {
-    const raw = sessionStorage.getItem(SESSION_USER_KEY);
+    const raw = sessionStorage.getItem(SESSION_USER_KEY) || localStorage.getItem(SESSION_USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -16,20 +16,22 @@ function getCachedUser() {
 
 function setCachedUser(user) {
   try {
-    if (user) sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
-    else sessionStorage.removeItem(SESSION_USER_KEY);
+    if (user) {
+      sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+      localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+    } else {
+      sessionStorage.removeItem(SESSION_USER_KEY);
+      localStorage.removeItem(SESSION_USER_KEY);
+    }
   } catch {
-    // sessionStorage unavailable (private browsing edge-case) — ignore.
+    // storage edge-case
   }
 }
 
 export function AuthProvider({ children }) {
-  // Seed state from sessionStorage so the app renders instantly on page reload
-  // without waiting for the /api/auth/me network round-trip.
   const [user, setUserState] = useState(() =>
     getToken() ? getCachedUser() : null
   );
-  // If we already have a cached user we can skip the booting spinner entirely.
   const [booting, setBooting] = useState(Boolean(getToken() && !getCachedUser()));
 
   const setUser = useCallback((u) => {
@@ -48,26 +50,26 @@ export function AuthProvider({ children }) {
       setBooting(false);
       return;
     }
-    // If we already showed cached user, do a background refresh — no spinner.
-    const backgroundOnly = Boolean(getCachedUser());
-    if (!backgroundOnly) setBooting(true);
+    const cached = getCachedUser();
+    if (!cached) setBooting(true);
 
     let active = true;
-    // Safety timeout: if the backend takes too long, clear the session.
+
+    // Safety timer: unblock boot screen after 6s regardless of network latency
     const timer = setTimeout(() => {
-      if (active && !backgroundOnly) {
-        logout();
-        setBooting(false);
-      }
-    }, 8000);
+      if (active) setBooting(false);
+    }, 6000);
 
     api
       .me()
       .then((profile) => {
         if (active) setUser(profile);
       })
-      .catch(() => {
-        if (active) logout();
+      .catch((err) => {
+        // Only log out if explicitly rejected by auth (not network timeout or temporary 5xx)
+        if (active && (!getToken() || err.message?.includes("Not authenticated"))) {
+          logout();
+        }
       })
       .finally(() => {
         if (active) setBooting(false);

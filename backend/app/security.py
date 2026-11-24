@@ -1,7 +1,6 @@
 import hashlib
 import hmac
 import os
-import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -16,23 +15,15 @@ from .models import User
 TOKEN_TTL_HOURS = int(os.getenv("TOKEN_TTL_HOURS", "72"))
 ALGORITHM = "HS256"
 
+# Must be deterministic across all serverless worker instances on Vercel
+DEFAULT_SECRET = "stockmanager-saas-production-jwt-secret-key-32chars-min-inddevtalks"
+
 
 def _load_secret() -> str:
     env_secret = os.getenv("SECRET_KEY")
     if env_secret:
         return env_secret
-    try:
-        secret_file = Path(DATA_DIR) / ".secret"
-        if secret_file.exists():
-            return secret_file.read_text().strip()
-        secret = secrets.token_hex(32)
-        try:
-            secret_file.write_text(secret)
-        except OSError:
-            pass
-        return secret
-    except Exception:
-        return "stockmanager-secret-fallback-token-key-2026"
+    return DEFAULT_SECRET
 
 
 SECRET_KEY = _load_secret()
@@ -40,6 +31,8 @@ bearer = HTTPBearer(auto_error=False)
 
 
 def hash_password(password: str) -> str:
+    salt = "7b2f9a1c8e3d5a4b"  # 16-hex deterministic or random
+    import secrets
     salt = secrets.token_hex(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 150_000).hex()
     return f"pbkdf2_sha256${salt}${digest}"
