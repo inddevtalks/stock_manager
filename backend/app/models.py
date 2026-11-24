@@ -68,7 +68,7 @@ class Issue(Base):
     department: Mapped[str | None] = mapped_column(String(120), default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
-    issued_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    issued_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
     expected_return: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     returned_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     issued_by: Mapped[str | None] = mapped_column(String(160), default=None)
@@ -81,12 +81,14 @@ class Movement(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     item_id: Mapped[int] = mapped_column(ForeignKey("items.id"), index=True)
-    kind: Mapped[str] = mapped_column(String(20))  # in | out | return | adjust
+    # index=True on `kind` and `created_at` is critical: the dashboard trend
+    # query filters on both columns across the full movements table.
+    kind: Mapped[str] = mapped_column(String(20), index=True)   # in | out | return | adjust
     quantity: Mapped[float] = mapped_column(Float)
     reference: Mapped[str | None] = mapped_column(String(40), default=None)
     note: Mapped[str | None] = mapped_column(Text, default=None)
     created_by: Mapped[str | None] = mapped_column(String(160), default=None)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
 
     item: Mapped[Item] = relationship(back_populates="movements")
 

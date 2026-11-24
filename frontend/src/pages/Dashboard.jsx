@@ -5,6 +5,7 @@ import {
   ArrowRight,
   ArrowUpFromLine,
   Boxes,
+  ChevronRight,
   ClipboardList,
   IndianRupee,
   Package,

@@ -41,24 +41,29 @@ def _migrate_schema():
         pass
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def _init_db():
+    """Run schema migration + table creation exactly once."""
     _migrate_schema()
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
     except Exception:
+        # Table may already exist (MySQL has_table quirk) -- safe to ignore.
         pass
+
+
+# Serverless-safe: run at module-import time so Vercel functions are ready
+# immediately after the module loads.
+_init_db()
+
+# Only seed when explicitly enabled or on first run (guarded inside seed()).
+if not os.getenv("SKIP_SEED"):
     seed()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # DB already initialised above; nothing extra needed at lifespan start.
     yield
-
-
-# Serverless-safe: run migration + create_all at import time.
-_migrate_schema()
-try:
-    Base.metadata.create_all(bind=engine, checkfirst=True)
-except Exception:
-    # Table may already exist (MySQL has_table quirk) — safe to ignore.
-    pass
 
 
 app = FastAPI(

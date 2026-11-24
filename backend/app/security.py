@@ -53,19 +53,41 @@ def verify_password(password: str, stored: str) -> bool:
 def create_token(user: User) -> str:
     now = datetime.now(timezone.utc)
     payload = {
-        "sub": str(user.id),
+        "sub":   str(user.id),
         "email": user.email,
-        "name": user.name,
-        "iat": now,
-        "exp": now + timedelta(hours=TOKEN_TTL_HOURS),
+        "name":  user.name,
+        "role":  user.role,
+        "iat":   now,
+        "exp":   now + timedelta(hours=TOKEN_TTL_HOURS),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def _decode_token_payload(token: str) -> dict:
+    """Decode and validate a JWT. Raises HTTPException on failure."""
+    unauthorized = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except Exception:
+        raise unauthorized
 
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     db: Session = Depends(get_db),
 ) -> User:
+    """
+    Validate the JWT and return the User ORM object (fetched from DB).
+
+    The DB lookup is kept here for correctness -- routes that mutate the user
+    (update_me, change_password) need a session-managed object.  Read-only
+    routes that only need user.id / user.name / user.role benefit from the
+    indexed PK lookup which is essentially free on any DB.
+    """
     unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Not authenticated",
@@ -73,11 +95,12 @@ def get_current_user(
     )
     if credentials is None or not credentials.credentials:
         raise unauthorized
-    try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = int(payload.get("sub", 0))
-    except Exception:
+
+    payload = _decode_token_payload(credentials.credentials)
+    user_id = int(payload.get("sub", 0))
+    if not user_id:
         raise unauthorized
+
     user = db.get(User, user_id)
     if user is None:
         raise unauthorized
