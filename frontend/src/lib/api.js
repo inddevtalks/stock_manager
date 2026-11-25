@@ -15,12 +15,24 @@ function failWith(response, data, auth) {
     setToken(null);
     window.dispatchEvent(new Event("sm:unauthorized"));
   }
-  let message = "Something went wrong. Please try again.";
-  if (typeof data?.detail === "string") message = data.detail;
+  let message = `Something went wrong (HTTP ${response.status}). Please try again.`;
+  if (typeof data === "string" && data.trim() && data.length < 400) {
+    message = data.trim();
+  } else if (typeof data?.detail === "string") message = data.detail;
   else if (Array.isArray(data?.detail) && data.detail.length) {
     message = data.detail.map((row) => row.msg || "Invalid value").join(", ");
   }
   throw new Error(message);
+}
+
+async function readBody(response) {
+  const raw = await response.text();
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
 }
 
 async function request(path, { method = "GET", body, auth = true } = {}) {
@@ -40,7 +52,7 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
     throw new Error("Cannot reach the server. Is the backend running?");
   }
 
-  const data = await response.json().catch(() => null);
+  const data = await readBody(response);
   if (!response.ok) failWith(response, data, auth);
   return data;
 }
@@ -57,7 +69,7 @@ async function requestForm(path, formData) {
     throw new Error("Cannot reach the server. Is the backend running?");
   }
 
-  const data = await response.json().catch(() => null);
+  const data = await readBody(response);
   if (!response.ok) failWith(response, data, true);
   return data;
 }
