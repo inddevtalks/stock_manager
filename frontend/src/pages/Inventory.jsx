@@ -74,9 +74,14 @@ export default function Inventory() {
   const {
     data: stationeryOverview,
   } = useFetch(() => api.stationeryOverview(), []);
+  const {
+    data: stationeryData,
+    loading: stationeryLoading,
+  } = useFetch(() => api.stationery(""), []);
 
   const itemList = items || [];
   const issueList = issues || [];
+  const stationeryItems = stationeryData?.items || [];
   const pending = issueList.filter((issue) => issue.status === "pending");
   const overdue = pending.filter(isOverdue);
 
@@ -133,6 +138,18 @@ export default function Inventory() {
         .some((value) => value.toLowerCase().includes(term))
     );
   }, [itemList, search]);
+
+  const stationeryRows = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const rows = term
+      ? stationeryItems.filter((item) =>
+          [item.name, item.category, item.referer, item.source_type]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(term))
+        )
+      : stationeryItems;
+    return [...rows].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }, [stationeryItems, search]);
 
   const pendingRows = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -424,26 +441,33 @@ export default function Inventory() {
               <Search size={16} />
               <input
                 className="input"
-                placeholder="Search inventory…"
+                placeholder="Search stationery by name or category…"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
             </div>
             <span className="toolbar-count">
-              {overviewRows.length} items · {money(totals.value, currencySymbol)} on hand
+              {stationeryRows.length} items · {num(stationeryOverview?.in?.units || 0)} units in stock
             </span>
           </div>
 
-          {loading ? (
+          {stationeryLoading ? (
             <LoadingRows rows={6} />
-          ) : overviewRows.length === 0 ? (
+          ) : stationeryRows.length === 0 ? (
             <EmptyState
               icon={<Boxes size={22} />}
-              title={search ? "No matching items" : "No stock yet"}
+              title={search ? "No matching items" : "No stationery yet"}
               message={
                 search
                   ? "Try a different search term."
-                  : "Add items on the Stock items page, then come back here to issue them."
+                  : "Add your first item from Stock In and it will show up here."
+              }
+              action={
+                !search && (
+                  <Link to="/stock-in" className="btn btn-primary btn-sm">
+                    <ArrowDownToLine size={14} /> Add stock in
+                  </Link>
+                )
               }
             />
           ) : (
@@ -454,52 +478,43 @@ export default function Inventory() {
                     <tr>
                       <th>Item</th>
                       <th>Category</th>
-                      <th className="num">Available</th>
-                      <th className="num">Issued</th>
-                      <th className="num">Total</th>
+                      <th className="num">In stock</th>
+                      <th className="num">Taken out</th>
+                      <th className="num">Pending</th>
                       <th>Status</th>
                       <th className="actions">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {overviewRows.map((item) => (
+                    {stationeryRows.map((item) => (
                       <tr key={item.id}>
                         <td>
                           <div className="cell-item">
                             <span className="item-glyph">{initials(item.name)}</span>
                             <div style={{ minWidth: 0 }}>
                               <strong>{item.name}</strong>
-                              <span>
-                                {item.sku}
-                                {item.location ? ` · ${item.location}` : ""}
-                              </span>
+                              <span>{item.referer || item.source_type || "Stationery"}</span>
                             </div>
                           </div>
                         </td>
                         <td>
                           <span className="badge badge-neutral no-dot">{item.category}</span>
                         </td>
-                        <td className="num strong">
-                          {num(item.quantity)}{" "}
-                          <span className="muted small" style={{ fontWeight: 400 }}>
-                            {item.unit}
-                          </span>
+                        <td className="num strong">{num(item.total_stock)}</td>
+                        <td className="num">{num(item.taken_out)}</td>
+                        <td
+                          className="num"
+                          style={{ color: item.pending_out > 0 ? "var(--warn)" : undefined }}
+                        >
+                          {num(item.pending_out)}
                         </td>
-                        <td className="num" style={{ color: item.pending_quantity > 0 ? "var(--brand-text)" : undefined }}>
-                          {num(item.pending_quantity)}
-                        </td>
-                        <td className="num muted">{num(item.quantity + item.pending_quantity)}</td>
                         <td>
                           <StockBadge status={item.status} />
                         </td>
                         <td className="actions">
-                          <button
-                            className="btn btn-outline btn-sm"
-                            onClick={() => openIssue(item)}
-                            disabled={Number(item.quantity) <= 0}
-                          >
-                            <ArrowUpFromLine size={13} /> Issue
-                          </button>
+                          <Link to="/stock-out" className="btn btn-outline btn-sm">
+                            <ArrowUpFromLine size={13} /> Take out
+                          </Link>
                         </td>
                       </tr>
                     ))}
@@ -508,44 +523,36 @@ export default function Inventory() {
               </div>
 
               <div className="item-cards">
-                {overviewRows.map((item) => (
+                {stationeryRows.map((item) => (
                   <div className="item-card" key={item.id}>
                     <div className="item-card-top">
                       <div className="cell-item">
                         <span className="item-glyph">{initials(item.name)}</span>
                         <div style={{ minWidth: 0 }}>
                           <strong>{item.name}</strong>
-                          <span>
-                            {item.sku} · {item.category}
-                          </span>
+                          <span>{item.category}</span>
                         </div>
                       </div>
                       <StockBadge status={item.status} />
                     </div>
                     <div className="item-card-stats">
                       <div>
-                        <span>Available</span>
-                        <strong>
-                          {num(item.quantity)} {item.unit}
-                        </strong>
+                        <span>In stock</span>
+                        <strong>{num(item.total_stock)}</strong>
                       </div>
                       <div>
-                        <span>Issued</span>
-                        <strong>{num(item.pending_quantity)}</strong>
+                        <span>Taken out</span>
+                        <strong>{num(item.taken_out)}</strong>
                       </div>
                       <div>
-                        <span>Total</span>
-                        <strong>{num(item.quantity + item.pending_quantity)}</strong>
+                        <span>Pending</span>
+                        <strong>{num(item.pending_out)}</strong>
                       </div>
                     </div>
                     <div className="item-card-actions">
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => openIssue(item)}
-                        disabled={Number(item.quantity) <= 0}
-                      >
-                        <ArrowUpFromLine size={14} /> Issue this item
-                      </button>
+                      <Link to="/stock-out" className="btn btn-primary btn-sm">
+                        <ArrowUpFromLine size={14} /> Take out
+                      </Link>
                     </div>
                   </div>
                 ))}

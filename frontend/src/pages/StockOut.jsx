@@ -104,12 +104,6 @@ export default function StockOut() {
   }, [search, memberFilter, itemFilter, statusFilter, sort]);
 
   const { data, loading, error, reload } = useFetch(() => api.stockOut(query), [query]);
-  useEffect(() => {
-    if (!defaulted && isAdmin && (summary.pending_records || 0) > 0) {
-      setStatusFilter("pending");
-      setDefaulted(true);
-    }
-  }, [summary.pending_records, isAdmin, defaulted]);
   const { data: membersData, reload: reloadMembers } = useFetch(() => api.members(""), []);
   const members = membersData || [];
 
@@ -120,13 +114,23 @@ export default function StockOut() {
   const memberOptions = members || [];
   const summary = data?.summary || {
     records: 0,
+    approved_records: 0,
+    pending_records: 0,
     units_out: 0,
+    pending_units: 0,
     people: 0,
     items: 0,
     remaining_units: 0,
     in_items: 0,
   };
   const items = data?.items || [];
+
+  useEffect(() => {
+    if (!defaulted && isAdmin && (summary.pending_records || 0) > 0) {
+      setStatusFilter("pending");
+      setDefaulted(true);
+    }
+  }, [summary.pending_records, isAdmin, defaulted]);
 
   const selectedItem = useMemo(
     () => items.find((item) => String(item.id) === String(form.stationery_id)) || null,
@@ -189,7 +193,12 @@ export default function StockOut() {
         note: form.note.trim() || null,
         taken_at: form.taken_at || null,
       });
-      toast.success("Stock taken out", `${quantity} × ${selectedItem?.name} recorded.`);
+      toast.success(
+        isAdmin ? "Stock taken out" : "Request sent",
+        isAdmin
+          ? `${quantity} × ${selectedItem?.name} recorded.`
+          : `${quantity} × ${selectedItem?.name} is awaiting admin approval.`
+      );
       setModal(null);
       reload();
     } catch (err) {
@@ -627,7 +636,7 @@ export default function StockOut() {
               Cancel
             </button>
             <button className="btn btn-primary" type="submit" form="stockout-form" disabled={busy}>
-              {busy ? "Saving…" : "Take out"}
+              {busy ? "Saving…" : isAdmin ? "Take out" : "Submit request"}
             </button>
           </>
         }
