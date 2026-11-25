@@ -51,13 +51,27 @@ def _init_db():
         pass
 
 
+def _should_bootstrap() -> bool:
+    """Return True when this process should initialise schema + seed.
+
+    On Vercel the database is already provisioned. Running schema inspection
+    and seeding on every cold start opens several round-trips to the remote
+    database, which makes parallel API calls extremely slow. Set
+    RUN_DB_INIT=1 to force bootstrap (e.g. pointing at a brand-new database).
+    """
+    if os.getenv("SKIP_DB_INIT"):
+        return False
+    if os.getenv("VERCEL") and not os.getenv("RUN_DB_INIT"):
+        return False
+    return True
+
+
 # Serverless-safe: run at module-import time so Vercel functions are ready
 # immediately after the module loads.
-_init_db()
-
-# Only seed when explicitly enabled or on first run (guarded inside seed()).
-if not os.getenv("SKIP_SEED"):
-    seed()
+if _should_bootstrap():
+    _init_db()
+    if not os.getenv("SKIP_SEED"):
+        seed()
 
 
 @asynccontextmanager
