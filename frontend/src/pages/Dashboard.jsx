@@ -8,6 +8,7 @@ import {
   ChevronRight,
   ClipboardList,
   IndianRupee,
+  Layers,
   Package,
   PackagePlus,
   SlidersHorizontal,

@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ClipboardList,
   History,
+  Layers,
   PackageCheck,
   RotateCcw,
   Search,
@@ -326,7 +327,7 @@ export default function Inventory() {
           <div className="hub-card-copy">
             <strong>Stock In</strong>
             <span>
-              {num(stationeryOverview?.in?.items || 0)} items . {num(stationeryOverview?.in?.units || 0)} units available
+              {num(stationeryOverview?.in?.items || 0)} items · {num(stationeryOverview?.in?.units || 0)} units available
             </span>
           </div>
           <ChevronRight size={16} className="hub-arrow" />
@@ -338,7 +339,7 @@ export default function Inventory() {
           <div className="hub-card-copy">
             <strong>Stock Out</strong>
             <span>
-              {num(stationeryOverview?.out?.records || 0)} records . {num(stationeryOverview?.out?.units_out || 0)} units taken
+              {num(stationeryOverview?.out?.records || 0)} records · {num(stationeryOverview?.out?.units_out || 0)} units taken
             </span>
           </div>
           <ChevronRight size={16} className="hub-arrow" />
@@ -423,13 +424,13 @@ export default function Inventory() {
               <Search size={16} />
               <input
                 className="input"
-                placeholder="Search inventory???"
+                placeholder="Search inventory…"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
             </div>
             <span className="toolbar-count">
-              {overviewRows.length} items ?. {money(totals.value, currencySymbol)} on hand
+              {overviewRows.length} items · {money(totals.value, currencySymbol)} on hand
             </span>
           </div>
 
@@ -470,7 +471,7 @@ export default function Inventory() {
                               <strong>{item.name}</strong>
                               <span>
                                 {item.sku}
-                                {item.location ? ` ?. ${item.location}` : ""}
+                                {item.location ? ` · ${item.location}` : ""}
                               </span>
                             </div>
                           </div>
@@ -515,7 +516,7 @@ export default function Inventory() {
                         <div style={{ minWidth: 0 }}>
                           <strong>{item.name}</strong>
                           <span>
-                            {item.sku} ?. {item.category}
+                            {item.sku} · {item.category}
                           </span>
                         </div>
                       </div>
@@ -559,13 +560,13 @@ export default function Inventory() {
               <Search size={16} />
               <input
                 className="input"
-                placeholder="Search by person, item or reference???"
+                placeholder="Search by person, item or reference…"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
             </div>
             <span className="toolbar-count">
-              {pending.length} pending ?. {num(totals.issued)} units out
+              {pending.length} pending · {num(totals.issued)} units out
             </span>
           </div>
           {loading ? (
@@ -601,7 +602,7 @@ export default function Inventory() {
                           <div style={{ minWidth: 0 }}>
                             <strong>{issue.issued_to}</strong>
                             <span>
-                              {issue.department || "No department"} ?. {issue.reference}
+                              {issue.department || "No department"} · {issue.reference}
                             </span>
                           </div>
                         </div>
@@ -623,7 +624,7 @@ export default function Inventory() {
                           {issue.expected_return ? (
                             <>
                               Due <b>{dateShort(issue.expected_return)}</b>
-                              {over ? ` ?. ${Math.abs(days)}d overdue` : days === 0 ? " ?. today" : ""}
+                              {over ? ` · ${Math.abs(days)}d overdue` : days === 0 ? " · today" : ""}
                             </>
                           ) : (
                             "No return date"
@@ -658,7 +659,7 @@ export default function Inventory() {
               <Search size={16} />
               <input
                 className="input"
-                placeholder="Search issue history???"
+                placeholder="Search issue history…"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -708,7 +709,7 @@ export default function Inventory() {
                         </td>
                         <td>
                           <div style={{ fontWeight: 600 }}>{issue.item_name}</div>
-                          <div className="muted small">{issue.department || "???"}</div>
+                          <div className="muted small">{issue.department || "—"}</div>
                         </td>
                         <td className="num strong">
                           {num(issue.quantity)} <span className="muted small">{issue.item_unit}</span>
@@ -741,7 +742,7 @@ export default function Inventory() {
                         <div style={{ minWidth: 0 }}>
                           <strong>{issue.item_name}</strong>
                           <span>
-                            {issue.reference} ?. {issue.issued_to}
+                            {issue.reference} · {issue.issued_to}
                           </span>
                         </div>
                       </div>
@@ -789,7 +790,7 @@ export default function Inventory() {
               Cancel
             </button>
             <button className="btn btn-primary" type="submit" form="issue-form" disabled={busy}>
-              {busy ? "Issuing???" : "Issue item"}
+              {busy ? "Issuing…" : "Issue item"}
             </button>
           </>
         }
@@ -807,10 +808,10 @@ export default function Inventory() {
               }}
               required
             >
-              <option value="">Select an item???</option>
+              <option value="">Select an item…</option>
               {itemList.map((item) => (
                 <option key={item.id} value={item.id} disabled={Number(item.quantity) <= 0}>
-                  {item.name} ??? {num(item.quantity)} {item.unit} available
+                  {item.name} — {num(item.quantity)} {item.unit} available
                   {Number(item.quantity) <= 0 ? " (out of stock)" : ""}
                 </option>
               ))}
@@ -823,7 +824,7 @@ export default function Inventory() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <strong>{selectedItem.name}</strong>
                 <span>
-                  {num(selectedItem.quantity)} {selectedItem.unit} available ?.{" "}
+                  {num(selectedItem.quantity)} {selectedItem.unit} available ·{" "}
                   {money(selectedItem.unit_price, currencySymbol)} per {selectedItem.unit}
                 </span>
               </div>
@@ -937,7 +938,7 @@ export default function Inventory() {
         title="Receive items back"
         subtitle={
           modal?.issue
-            ? `${modal.issue.reference} ?. ${modal.issue.issued_to}`
+            ? `${modal.issue.reference} · ${modal.issue.issued_to}`
             : ""
         }
         footer={
@@ -946,7 +947,7 @@ export default function Inventory() {
               Cancel
             </button>
             <button className="btn btn-primary" type="submit" form="return-form" disabled={busy}>
-              {busy ? "Receiving???" : "Add back to stock"}
+              {busy ? "Receiving…" : "Add back to stock"}
             </button>
           </>
         }
@@ -957,7 +958,7 @@ export default function Inventory() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <strong>{modal.issue.item_name}</strong>
               <span>
-                {num(modal.issue.pending_quantity)} {modal.issue.item_unit} still pending ?. issued{" "}
+                {num(modal.issue.pending_quantity)} {modal.issue.item_unit} still pending · issued{" "}
                 {dateTime(modal.issue.issued_at)}
               </span>
             </div>
@@ -979,7 +980,7 @@ export default function Inventory() {
               required
             />
             <span className="hint">
-              Partial returns are allowed ??? the rest stays in the pending list.
+              Partial returns are allowed — the rest stays in the pending list.
             </span>
           </div>
           <div className="field">
@@ -1008,7 +1009,7 @@ export default function Inventory() {
             The issue record for <strong>{modal?.issue?.item_name}</strong> to{" "}
             <strong>{modal?.issue?.issued_to}</strong> will be removed and{" "}
             {num(modal?.issue?.pending_quantity)} {modal?.issue?.item_unit} will be added back to
-            available stock. Prefer ???Receive back??? if the items were actually handed over.
+            available stock. Prefer "Receive back" if the items were actually handed over.
           </>
         }
       />

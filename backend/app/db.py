@@ -53,11 +53,13 @@ def _database_url() -> str:
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql://", 1)
 
-        # In SQLAlchemy 2.0, if psycopg (v3) is available, postgresql:// works.
-        # Otherwise fall back to psycopg2 driver (postgresql+psycopg2://).
-        if url.startswith("postgresql://"):
+        # In SQLAlchemy 2.0, the default driver for postgresql:// is psycopg2.
+        # If psycopg (v3) is available, use postgresql+psycopg://.
+        # Otherwise fallback to postgresql+psycopg2://.
+        if url.startswith("postgresql://") and "+psycopg" not in url:
             try:
                 import psycopg  # noqa: F401
+                url = url.replace("postgresql://", "postgresql+psycopg://", 1)
             except ImportError:
                 url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
