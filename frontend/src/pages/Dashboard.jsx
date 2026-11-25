@@ -107,7 +107,7 @@ export default function Dashboard() {
           <h1 className="page-title">
             {greeting()}, {firstName}
           </h1>
-          <p className="page-sub">Here is the latest snapshot of your stock and pending items.</p>
+          <p className="page-sub">Here is the latest snapshot of your stock, stationery and pending items.</p>
         </div>
         <div className="head-actions">
           <button className="btn btn-outline" onClick={() => navigate("/stock-in")}>
@@ -198,6 +198,58 @@ export default function Dashboard() {
           </div>
           <ChevronRight size={16} className="hub-arrow" />
         </Link>
+      </div>
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card-head">
+          <div>
+            <div className="card-title">Stationery (Stock In / Stock Out)</div>
+            <div className="card-sub">Your stationery register at a glance</div>
+          </div>
+          <Link to="/stock-in" className="btn btn-outline btn-sm">
+            <ClipboardList size={14} /> Open
+          </Link>
+        </div>
+        <div className="card-body">
+          <div className="mini-stats four" style={{ marginBottom: 0 }}>
+            <div className="mini-stat">
+              <span className="stat-icon">
+                <ClipboardList size={17} />
+              </span>
+              <div>
+                <strong>{num(stationery.items || 0)}</strong>
+                <span>Items in Stock In</span>
+              </div>
+            </div>
+            <div className="mini-stat">
+              <span className="stat-icon green">
+                <Layers size={17} />
+              </span>
+              <div>
+                <strong>{num(stationery.units || 0)}</strong>
+                <span>Units available</span>
+              </div>
+            </div>
+            <div className="mini-stat">
+              <span className="stat-icon amber">
+                <ArrowUpFromLine size={17} />
+              </span>
+              <div>
+                <strong>{num(stationery.pending_requests || 0)}</strong>
+                <span>Pending requests</span>
+              </div>
+            </div>
+            <div className="mini-stat">
+              <span className="stat-icon rose">
+                <AlertTriangle size={17} />
+              </span>
+              <div>
+                <strong>{num(stationery.out_of_stock || 0)}</strong>
+                <span>Out of stock</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {lowStock.length > 0 && (
