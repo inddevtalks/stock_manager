@@ -200,6 +200,7 @@ export default function StockOut() {
           : `${quantity} × ${selectedItem?.name} is awaiting admin approval.`
       );
       setModal(null);
+      window.dispatchEvent(new Event("sm:refresh"));
       reload();
     } catch (err) {
       setFormError(err.message);
@@ -252,6 +253,7 @@ export default function StockOut() {
       await api.deleteStockOut(undoTarget.id);
       toast.success("Stock restored", `${undoTarget.quantity} × ${undoTarget.item_name} added back to Stock In.`);
       setUndoTarget(null);
+      window.dispatchEvent(new Event("sm:refresh"));
       reload();
     } catch (err) {
       toast.error("Could not undo", err.message);
@@ -266,6 +268,7 @@ export default function StockOut() {
     try {
       await api.approveStockOut(record.id);
       toast.success("Approved", `Stock taken out for ${record.item_name}.`);
+      window.dispatchEvent(new Event("sm:refresh"));
       reload();
     } catch (err) {
       toast.error("Could not approve", err.message);
@@ -280,6 +283,7 @@ export default function StockOut() {
     try {
       await api.rejectStockOut(record.id);
       toast.success("Rejected", "The request was rejected.");
+      window.dispatchEvent(new Event("sm:refresh"));
       reload();
     } catch (err) {
       toast.error("Could not reject", err.message);

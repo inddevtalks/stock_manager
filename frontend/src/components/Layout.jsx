@@ -70,20 +70,25 @@ export default function Layout() {
   useEffect(() => {
     if (user?.role === "staff") return;
     let active = true;
-    api
-      .issues("?status=pending")
-      .then((rows) => {
-        if (active) setPendingCount(rows.length);
-      })
-      .catch(() => {});
-    api
-      .stockOut("?status=pending")
-      .then((data) => {
-        if (active) setStockOutPending(data?.summary?.pending_records || 0);
-      })
-      .catch(() => {});
+    const load = () => {
+      api
+        .issues("?status=pending")
+        .then((rows) => {
+          if (active) setPendingCount(rows.length);
+        })
+        .catch(() => {});
+      api
+        .stockOut("?status=pending")
+        .then((data) => {
+          if (active) setStockOutPending(data?.summary?.pending_records || 0);
+        })
+        .catch(() => {});
+    };
+    load();
+    window.addEventListener("sm:refresh", load);
     return () => {
       active = false;
+      window.removeEventListener("sm:refresh", load);
     };
   }, [location.pathname, user?.role]);
 
